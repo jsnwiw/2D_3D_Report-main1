@@ -5,12 +5,12 @@
  * 역할 및 기능:
  * 1. PWA(Progressive Web App) 오프라인 구동 및 정적 리소스 캐싱 관리
  * 2. 네트워크 우선(Network First) 및 오프라인 폴백(Cache Fallback) 전략 지원
- * 3. 캐시 버전 갱신 시 구버전 자동 정리 및 최신 상태 즉각 활성화(skipWaiting, clients.claim)
+ * 3. 캐시 버전 갱신 시 구버전 정리 및 사용자 요청 시 최신 상태 활성화
  * ==============================================================================
  */
 
 // 캐시 스토리지 고유 버전명 (리소스 업데이트 시 버전 변경)
-const CACHE_NAME = '3d-vis-cache-v5';
+const CACHE_NAME = '3d-vis-cache-v6';
 
 // 오프라인 상태에서도 동작할 수 있도록 사전 캐싱할 핵심 정적 자산 목록
 const ASSETS_TO_CACHE = [
@@ -26,20 +26,26 @@ const ASSETS_TO_CACHE = [
 /**
  * 1. install 이벤트: 서비스 워커 최초 등록/설치 시 실행
  * - 캐시 스토리지를 열고 핵심 에셋들을 모두 다운로드하여 캐시에 저장
- * - self.skipWaiting(): 대기 상태를 건너뛰고 새 서비스 워커를 즉시 활성화
+ * - 기존 앱이 열려 있으면 새 서비스 워커를 대기 상태로 두고 사용자 적용을 기다림
  */
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       return cache.addAll(ASSETS_TO_CACHE);
-    }).then(() => self.skipWaiting())
+    })
   );
+});
+
+self.addEventListener('message', event => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    event.waitUntil(self.skipWaiting());
+  }
 });
 
 /**
  * 2. activate 이벤트: 새 서비스 워커가 활성화될 때 실행
  * - 이전 버전(구버전)의 불필요한 캐시 스토리지를 탐색하여 일괄 삭제(정리)
- * - self.clients.claim(): 새로 로드되는 페이지뿐만 아니라 현재 열려있는 탭들도 즉시 제어
+ * - self.clients.claim(): 새로 로드되는 페이지도 최신 서비스 워커로 제어
  */
 self.addEventListener('activate', event => {
   event.waitUntil(

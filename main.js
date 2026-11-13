@@ -54,51 +54,71 @@ export function applyVisualization() {
 }
 window.__applyVisualization = applyVisualization;
 
-function setupServiceWorkerUpdates() {
+async function setupServiceWorkerUpdates() {
     if (!('serviceWorker' in navigator)) return;
 
-    let hasController = Boolean(navigator.serviceWorker.controller);
-    let updatePromptShown = false;
+    let registration;
+    try {
+        registration = await navigator.serviceWorker.register('./sw.js');
+    } catch (error) {
+        console.error('서비스 워커 등록 실패:', error);
+        return;
+    }
 
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (!hasController) {
-            hasController = true;
-            return;
-        }
-        if (updatePromptShown) return;
+    let updatePromptedFor = null;
+    let reloadAfterUpdate = false;
 
-        updatePromptShown = true;
+    const showUpdatePrompt = () => {
+        const waitingWorker = registration.waiting;
+        const toast = $('toast-notification');
+        if (!waitingWorker || !navigator.serviceWorker.controller) return;
+        if (waitingWorker === updatePromptedFor && toast?.style.display !== 'none') return;
+
+        updatePromptedFor = waitingWorker;
         showToast(
             '새 버전이 준비되었습니다. <button type="button" class="pwa-update-button">지금 적용</button>',
             60000
         );
-        $('toast-notification')?.querySelector('.pwa-update-button')?.addEventListener(
+        toast?.querySelector('.pwa-update-button')?.addEventListener(
             'click',
-            () => window.location.reload(),
+            () => {
+                reloadAfterUpdate = true;
+                waitingWorker.postMessage({ type: 'SKIP_WAITING' });
+            },
             { once: true }
         );
+    };
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (reloadAfterUpdate) window.location.reload();
     });
 
-    window.addEventListener('load', async () => {
-        try {
-            const registration = await navigator.serviceWorker.register('./sw.js');
-            registration.update().catch(error => {
-                console.error('서비스 워커 업데이트 확인 실패:', error);
-            });
+    const watchInstallingWorker = () => {
+        const installingWorker = registration.installing;
+        if (!installingWorker) return;
+        installingWorker.addEventListener('statechange', () => {
+            if (installingWorker.state === 'installed') showUpdatePrompt();
+        });
+    };
 
-            const checkForUpdate = () => {
-                registration.update().catch(error => {
-                    console.error('서비스 워커 업데이트 확인 실패:', error);
-                });
-            };
-            window.addEventListener('focus', checkForUpdate);
-            document.addEventListener('visibilitychange', () => {
-                if (!document.hidden) checkForUpdate();
-            });
+    registration.addEventListener('updatefound', watchInstallingWorker);
+    watchInstallingWorker();
+
+    const checkForUpdate = async () => {
+        try {
+            await registration.update();
         } catch (error) {
-            console.error('서비스 워커 등록 실패:', error);
+            console.error('서비스 워커 업데이트 확인 실패:', error);
         }
-    }, { once: true });
+        showUpdatePrompt();
+    };
+
+    showUpdatePrompt();
+    await checkForUpdate();
+    window.addEventListener('focus', checkForUpdate);
+    document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) checkForUpdate();
+    });
 }
 
 /**
