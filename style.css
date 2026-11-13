@@ -31,6 +31,11 @@
     box-sizing: border-box; /* 패딩과 테두리를 요소 너비에 포함 */
 }
 
+:root {
+    --ui-spring: cubic-bezier(0.22, 1.28, 0.36, 1);
+    --ui-smooth: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
 body, html {
     width: 100%; 
     height: 100%;
@@ -529,7 +534,7 @@ body, html {
     display: flex;
     flex-direction: column;
 
-    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease, border-color 0.25s, box-shadow 0.25s;
+    transition: transform 0.42s var(--ui-spring), opacity 0.28s var(--ui-smooth), border-color 0.25s ease, box-shadow 0.3s var(--ui-smooth);
     outline: none;
 }
 .menu-drawer.menu-active,
@@ -618,7 +623,7 @@ body, html {
     border: 1px solid rgba(99, 102, 241, 0.18);
     border-radius: 10px;
 
-    transition: border-color 0.2s, background 0.2s;
+    transition: border-color 0.24s var(--ui-smooth), background 0.24s var(--ui-smooth);
 }
 .accordion-item.active {
     border-color: rgba(99, 102, 241, 0.4);
@@ -629,7 +634,7 @@ body, html {
     display: flex; justify-content: space-between; align-items: center;
     cursor: pointer; user-select: none;
     font-size: 13px; font-weight: 700; color: #cbd5e1;
-    transition: background 0.2s, color 0.2s;
+    transition: background 0.24s ease, color 0.24s ease;
 }
 .accordion-header:hover {
     color: #f1f5f9; background: rgba(99, 102, 241, 0.15);
@@ -640,7 +645,7 @@ body, html {
 }
 .accordion-header .chevron {
     font-size: 12px; color: #94a3b8;
-    transition: transform 0.25s ease;
+    transition: transform 0.32s var(--ui-spring), color 0.2s ease;
 }
 .accordion-header.active .chevron {
     transform: rotate(180deg); color: #a5b4fc;
@@ -649,15 +654,16 @@ body, html {
 .accordion-body {
     padding: 14px;
     display: none;
-    animation: accordionSlideIn 0.25s ease-out;
+    animation: accordionSlideIn 0.36s var(--ui-spring);
 }
 .accordion-body.open {
     display: block;
 }
 
 @keyframes accordionSlideIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to { opacity: 1; transform: translateY(0); }
+    0% { opacity: 0; transform: translateY(-8px) scale(0.985); }
+    72% { opacity: 1; transform: translateY(2px) scale(1.003); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 /* ===== 필터 상태 요약 배지 & 퀵 필터 ===== */
@@ -1159,7 +1165,7 @@ body.upload-collapsed #chart-panel {
     align-items: center;
     justify-content: center;
     padding: 16px;
-    animation: modalFadeIn 0.2s ease-out;
+    animation: modalFadeIn 0.28s var(--ui-smooth);
 }
 .modal-card {
     background: #1e293b;
@@ -1169,15 +1175,16 @@ body.upload-collapsed #chart-panel {
     max-width: 480px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 25px rgba(99, 102, 241, 0.2);
 
-    animation: modalScaleUp 0.22s ease-out;
+    animation: modalScaleUp 0.42s var(--ui-spring);
 }
 @keyframes modalFadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
 }
 @keyframes modalScaleUp {
-    from { transform: scale(0.93); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+    0% { transform: translateY(12px) scale(0.94); opacity: 0; }
+    72% { transform: translateY(-2px) scale(1.015); opacity: 1; }
+    100% { transform: translateY(0) scale(1); opacity: 1; }
 }
 .modal-header {
     display: flex;
@@ -1346,12 +1353,13 @@ body.upload-collapsed #chart-panel {
     display: flex;
     flex-direction: column;
     gap: 8px;
-    animation: slideUpFade 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: slideUpFade 0.42s var(--ui-spring);
 }
 
 @keyframes slideUpFade {
-    from { opacity: 0; transform: translate(-50%, 20px); }
-    to { opacity: 1; transform: translate(-50%, 0); }
+    0% { opacity: 0; transform: translate(-50%, 18px) scale(0.97); }
+    72% { opacity: 1; transform: translate(-50%, -2px) scale(1.01); }
+    100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 
 .time-player-header {
@@ -1560,7 +1568,7 @@ body.upload-collapsed #chart-panel {
     display: flex;
     align-items: center;
     gap: 8px;
-    animation: toastPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: toastPop 0.4s var(--ui-spring);
 }
 .toast-popup .pwa-update-button {
     border: 0;
@@ -1573,8 +1581,9 @@ body.upload-collapsed #chart-panel {
     white-space: nowrap;
 }
 @keyframes toastPop {
-    from { opacity: 0; transform: translate(-50%, -15px); }
-    to { opacity: 1; transform: translate(-50%, 0); }
+    0% { opacity: 0; transform: translate(-50%, -12px) scale(0.96); }
+    72% { opacity: 1; transform: translate(-50%, 2px) scale(1.015); }
+    100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 
 /* ===============================
@@ -2645,9 +2654,11 @@ body.upload-collapsed #chart-panel {
         text-decoration: none;
         cursor: pointer;
         touch-action: manipulation;
+        transition: transform 0.24s var(--ui-spring), background 0.2s ease, box-shadow 0.24s var(--ui-smooth);
     }
     .mobile-action:active {
         background: rgba(99, 102, 241, 0.35);
+        transform: scale(0.96);
     }
     .mobile-action[hidden] {
         display: none;
@@ -2716,6 +2727,29 @@ body.upload-collapsed #chart-panel {
     #chart-panel.maximized {
         width: calc(100vw - 16px);
         max-height: calc(100dvh - 150px - env(safe-area-inset-bottom, 0px));
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    button:not(:disabled),
+    .upload-btn {
+        transition-timing-function: var(--ui-spring);
+        transition-duration: 0.24s;
+    }
+
+    .upload-btn:active {
+        transform: scale(0.97);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
     }
 }
 
