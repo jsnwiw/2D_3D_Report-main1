@@ -302,7 +302,8 @@ export async function generateAIReport(options = {}) {
         await sleep(100);
         setReportProgress(45, '2단계: 1.5×IQR 이상치 탐지 및 파레토 80/20 집중도 진단 중...');
 
-        const values = items.map(d => d.value).sort((a, b) => a - b);
+        const sortedDesc = [...items].sort((a, b) => b.value - a.value);
+        const values = sortedDesc.map(item => item.value).reverse();
         const count = values.length;
         const sum = values.reduce((a, b) => a + b, 0);
         const mean = sum / count;
@@ -323,7 +324,6 @@ export async function generateAIReport(options = {}) {
         const lowOutliers = items.filter(d => d.value < lowerLimit);
         const outliers = [...highOutliers, ...lowOutliers];
 
-        const sortedDesc = [...items].sort((a, b) => b.value - a.value);
         const top1 = sortedDesc[0] || { label: '항목 1', value: 0 };
         const top2 = sortedDesc[1] || top1;
         const top3 = sortedDesc[2] || top2;

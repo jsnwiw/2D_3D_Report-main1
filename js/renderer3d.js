@@ -285,8 +285,12 @@ export function render3DVisualization(labels, values) {
     if (!labels || !labels.length) return;
 
     const count = labels.length;
-    const maxVal = Math.max(...values, 0.001);
-    const minVal = Math.min(...values);
+    let maxVal = 0.001;
+    let minVal = Infinity;
+    for (const value of values) {
+        if (value > maxVal) maxVal = value;
+        if (value < minVal) minVal = value;
+    }
     const maxH = 8;
     const barStyleSelect = $('bar-style');
     const quickBarStyle = $('quick-bar-style');

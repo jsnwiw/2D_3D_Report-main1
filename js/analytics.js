@@ -5,6 +5,13 @@
  */
 import { $, appState, showToast } from './state.js';
 
+const DATE_PATTERNS = [
+    /^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/,
+    /^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/,
+    /^\d{4}년/,
+    /^\d{4}$/
+];
+
 export function fmt(n) {
     return typeof n === 'number' ? n.toLocaleString(undefined, { maximumFractionDigits: 2 }) : n;
 }
@@ -22,10 +29,19 @@ export function analyzeData(data) {
     const columnTypes = [], numericCols = [], categoryCols = [], dateCols = [];
 
     for (let c = 0; c < colCount; c++) {
-        const vals = rows.map(r => r[c]).filter(v => v !== '');
-        const numRatio = vals.filter(v => !isNaN(parseFloat(v)) && isFinite(v)).length / Math.max(vals.length, 1);
-        const datePatterns = [/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/, /^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/, /^\d{4}년/, /^\d{4}$/];
-        const dateRatio = vals.filter(v => datePatterns.some(p => p.test(v))).length / Math.max(vals.length, 1);
+        let valueCount = 0;
+        let numericCount = 0;
+        let dateCount = 0;
+        for (const row of rows) {
+            const value = row[c];
+            if (value === '') continue;
+            valueCount++;
+            if (!isNaN(parseFloat(value)) && isFinite(value)) numericCount++;
+            if (DATE_PATTERNS.some(pattern => pattern.test(value))) dateCount++;
+        }
+        const denominator = Math.max(valueCount, 1);
+        const numRatio = numericCount / denominator;
+        const dateRatio = dateCount / denominator;
 
         if (numRatio >= 0.8) { columnTypes.push('number'); numericCols.push(c); }
         else if (dateRatio >= 0.6) { columnTypes.push('date'); dateCols.push(c); }
@@ -48,9 +64,11 @@ export function analyzeData(data) {
 
     const categoryInfo = {};
     categoryCols.forEach(c => {
-        const vals = rows.map(r => r[c]).filter(v => v !== '');
-        const unique = [...new Set(vals)];
-        categoryInfo[headers[c]] = { uniqueCount: unique.length, topValues: unique.slice(0, 20) };
+        const unique = new Set();
+        for (const row of rows) {
+            if (row[c] !== '') unique.add(row[c]);
+        }
+        categoryInfo[headers[c]] = { uniqueCount: unique.size, topValues: [...unique].slice(0, 20) };
     });
 
     const recommendedCharts = getRecommendations(rowCount, numericCols, categoryCols, dateCols, headers, categoryInfo);
@@ -129,29 +147,34 @@ export function renderAIInsights(analysis) {
         return;
     }
 
-    const values = items.map(d => d.value).sort((a, b) => a - b);
-    const count = values.length;
-    const sum = values.reduce((a, b) => a + b, 0);
+    const sum = items.reduce((total, item) => total + item.value, 0);
+    items.sort((a, b) => a.value - b.value);
+    const count = items.length;
     const mean = sum / count;
-    const median = count % 2 === 0 ? (values[count / 2 - 1] + values[count / 2]) / 2 : values[Math.floor(count / 2)];
+    const median = count % 2 === 0
+        ? (items[count / 2 - 1].value + items[count / 2].value) / 2
+        : items[Math.floor(count / 2)].value;
 
     // IQR 기반 이상치 탐지
-    const q1 = values[Math.floor(count * 0.25)];
-    const q3 = values[Math.floor(count * 0.75)];
+    const q1 = items[Math.floor(count * 0.25)].value;
+    const q3 = items[Math.floor(count * 0.75)].value;
     const iqr = Math.max(q3 - q1, 0.0001);
     const upperLimit = q3 + 1.5 * iqr;
     const lowerLimit = q1 - 1.5 * iqr;
 
     const outliers = items.filter(d => d.value > upperLimit || d.value < lowerLimit);
+    const topOutlier = outliers.reduce(
+        (top, item) => !top || item.value > top.value ? item : top,
+        null
+    );
 
     // 파레토 80/20 법칙
-    const sortedDesc = [...items].sort((a, b) => b.value - a.value);
     const top20Count = Math.max(1, Math.round(count * 0.2));
-    const top20Sum = sortedDesc.slice(0, top20Count).reduce((acc, cur) => acc + cur.value, 0);
+    const top20Sum = items.slice(count - top20Count).reduce((acc, cur) => acc + cur.value, 0);
     const top20Share = sum > 0 ? ((top20Sum / sum) * 100).toFixed(1) : 0;
 
     // 변동계수 (CV)
-    const variance = values.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / count;
+    const variance = items.reduce((acc, item) => acc + Math.pow(item.value - mean, 2), 0) / count;
     const stddev = Math.sqrt(variance);
     const cv = mean > 0 ? (stddev / mean) : 0;
 
@@ -176,7 +199,6 @@ export function renderAIInsights(analysis) {
     `;
 
     if (outliers.length > 0) {
-        const topOutlier = outliers.sort((a, b) => b.value - a.value)[0];
         const ratio = mean > 0 ? (topOutlier.value / mean).toFixed(1) : '-';
         html += `
         <div class="ai-insight-item outlier">
@@ -199,10 +221,10 @@ export function renderAIInsights(analysis) {
 
     $('btn-highlight-outliers')?.addEventListener('click', () => {
         if (!outliers.length) return;
-        const target = appState.dataObjects[outliers[0].idx];
+        const target = appState.dataObjects[topOutlier.idx];
         if (target && window.__selectObject) {
-            window.__selectObject(target, outliers[0].idx);
-            showToast(`🎯 이상치 <strong>[${outliers[0].label}]</strong>에 카메라를 집중했습니다!`);
+            window.__selectObject(target, topOutlier.idx);
+            showToast(`🎯 이상치 <strong>[${topOutlier.label}]</strong>에 카메라를 집중했습니다!`);
         }
     });
 }
@@ -341,9 +363,16 @@ export function updateFilter(colIdx) {
     if (!dataFilter) return;
     dataFilter.innerHTML = '<option value="all">전체 보기</option>';
     if (!appState.parsedData) return;
-    [...new Set(appState.parsedData.rows.map(r => r[colIdx]))].slice(0, 60).forEach(v => {
-        dataFilter.appendChild(new Option(v, v));
-    });
+    const seen = new Set();
+    const options = document.createDocumentFragment();
+    for (const row of appState.parsedData.rows) {
+        const value = row[colIdx];
+        if (seen.has(value)) continue;
+        seen.add(value);
+        options.appendChild(new Option(value, value));
+        if (seen.size === 60) break;
+    }
+    dataFilter.appendChild(options);
 }
 
 /**

@@ -1649,6 +1649,11 @@ body.upload-collapsed #chart-panel {
         color: #0f172a !important;
     }
 
+    #print-report-container,
+    #print-report-container * {
+        background: #ffffff !important;
+    }
+
     /* 인쇄 시 페이지 경계에서 카드가 잘리거나 겹치지 않도록 보호 */
     .report-doc-top,
     .report-doc-header,

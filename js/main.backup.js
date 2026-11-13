@@ -756,7 +756,8 @@ async function generateAIReport(options = {}) {
         await sleep(100);
         setReportProgress(45, '2단계: 1.5×IQR 이상치 탐지 및 파레토 80/20 집중도 진단 중...');
 
-        const values = items.map(d => d.value).sort((a, b) => a - b);
+        const sortedDesc = [...items].sort((a, b) => b.value - a.value);
+        const values = sortedDesc.map(item => item.value).reverse();
         const count = values.length;
         const sum = values.reduce((a, b) => a + b, 0);
         const mean = sum / count;
@@ -779,7 +780,6 @@ async function generateAIReport(options = {}) {
         const outliers = [...highOutliers, ...lowOutliers];
 
         // 파레토 80/20
-        const sortedDesc = [...items].sort((a, b) => b.value - a.value);
         const top1 = sortedDesc[0] || { label: '항목 1', value: 0 };
         const top2 = sortedDesc[1] || top1;
         const top3 = sortedDesc[2] || top2;
@@ -1983,16 +1983,32 @@ function parseCSV(text) {
  * @param {{ headers: string[], rows: string[][] }} data 
  * @returns {Object} 종합 분석 결과 객체
  */
+const DATE_PATTERNS = [
+    /^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/,
+    /^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/,
+    /^\d{4}년/,
+    /^\d{4}$/
+];
+
 function analyzeData(data) {
     const { headers, rows } = data;
     const colCount = headers.length, rowCount = rows.length;
     const columnTypes = [], numericCols = [], categoryCols = [], dateCols = [];
 
     for (let c = 0; c < colCount; c++) {
-        const vals = rows.map(r => r[c]).filter(v => v !== '');
-        const numRatio = vals.filter(v => !isNaN(parseFloat(v)) && isFinite(v)).length / Math.max(vals.length, 1);
-        const datePatterns = [/^\d{4}[-/]\d{1,2}[-/]\d{1,2}$/, /^\d{1,2}[-/]\d{1,2}[-/]\d{4}$/, /^\d{4}년/, /^\d{4}$/];
-        const dateRatio = vals.filter(v => datePatterns.some(p => p.test(v))).length / Math.max(vals.length, 1);
+        let valueCount = 0;
+        let numericCount = 0;
+        let dateCount = 0;
+        for (const row of rows) {
+            const value = row[c];
+            if (value === '') continue;
+            valueCount++;
+            if (!isNaN(parseFloat(value)) && isFinite(value)) numericCount++;
+            if (DATE_PATTERNS.some(pattern => pattern.test(value))) dateCount++;
+        }
+        const denominator = Math.max(valueCount, 1);
+        const numRatio = numericCount / denominator;
+        const dateRatio = dateCount / denominator;
 
         if (numRatio >= 0.8) { columnTypes.push('number'); numericCols.push(c); }
         else if (dateRatio >= 0.6) { columnTypes.push('date'); dateCols.push(c); }
@@ -2015,9 +2031,11 @@ function analyzeData(data) {
 
     const categoryInfo = {};
     categoryCols.forEach(c => {
-        const vals = rows.map(r => r[c]).filter(v => v !== '');
-        const unique = [...new Set(vals)];
-        categoryInfo[headers[c]] = { uniqueCount: unique.length, topValues: unique.slice(0, 20) };
+        const unique = new Set();
+        for (const row of rows) {
+            if (row[c] !== '') unique.add(row[c]);
+        }
+        categoryInfo[headers[c]] = { uniqueCount: unique.size, topValues: [...unique].slice(0, 20) };
     });
 
     const recommendedCharts = getRecommendations(rowCount, numericCols, categoryCols, dateCols, headers, categoryInfo);
@@ -2091,29 +2109,34 @@ function renderAIInsights(analysis) {
     }
 
     // 1. 기본 통계 지표 산출
-    const values = items.map(d => d.value).sort((a, b) => a - b);
-    const count = values.length;
-    const sum = values.reduce((a, b) => a + b, 0);
+    const sum = items.reduce((total, item) => total + item.value, 0);
+    items.sort((a, b) => a.value - b.value);
+    const count = items.length;
     const mean = sum / count;
-    const median = count % 2 === 0 ? (values[count / 2 - 1] + values[count / 2]) / 2 : values[Math.floor(count / 2)];
+    const median = count % 2 === 0
+        ? (items[count / 2 - 1].value + items[count / 2].value) / 2
+        : items[Math.floor(count / 2)].value;
 
     // 2. IQR 기반 이상치(Outlier) 자동 탐지 (Q1 - 1.5*IQR, Q3 + 1.5*IQR)
-    const q1 = values[Math.floor(count * 0.25)];
-    const q3 = values[Math.floor(count * 0.75)];
+    const q1 = items[Math.floor(count * 0.25)].value;
+    const q3 = items[Math.floor(count * 0.75)].value;
     const iqr = Math.max(q3 - q1, 0.0001);
     const upperLimit = q3 + 1.5 * iqr;
     const lowerLimit = q1 - 1.5 * iqr;
 
     const outliers = items.filter(d => d.value > upperLimit || d.value < lowerLimit);
+    const topOutlier = outliers.reduce(
+        (top, item) => !top || item.value > top.value ? item : top,
+        null
+    );
 
     // 3. 파레토 법칙(80/20 법칙) 집중도 계산
-    const sortedDesc = [...items].sort((a, b) => b.value - a.value);
     const top20Count = Math.max(1, Math.round(count * 0.2));
-    const top20Sum = sortedDesc.slice(0, top20Count).reduce((acc, cur) => acc + cur.value, 0);
+    const top20Sum = items.slice(count - top20Count).reduce((acc, cur) => acc + cur.value, 0);
     const top20Share = sum > 0 ? ((top20Sum / sum) * 100).toFixed(1) : 0;
 
     // 4. 변동계수 (CV)
-    const variance = values.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0) / count;
+    const variance = items.reduce((acc, item) => acc + Math.pow(item.value - mean, 2), 0) / count;
     const stddev = Math.sqrt(variance);
     const cv = mean > 0 ? (stddev / mean) : 0;
 
@@ -2139,7 +2162,6 @@ function renderAIInsights(analysis) {
     `;
 
     if (outliers.length > 0) {
-        const topOutlier = outliers.sort((a, b) => b.value - a.value)[0];
         const ratio = mean > 0 ? (topOutlier.value / mean).toFixed(1) : '-';
         html += `
         <div class="ai-insight-item outlier">
@@ -2163,10 +2185,10 @@ function renderAIInsights(analysis) {
     // 이상치 하이라이트 버튼 이벤트
     $('btn-highlight-outliers')?.addEventListener('click', () => {
         if (!outliers.length) return;
-        const target = dataObjects[outliers[0].idx];
+        const target = dataObjects[topOutlier.idx];
         if (target) {
-            selectObject(target, outliers[0].idx);
-            showToast(`🎯 이상치 <strong>[${outliers[0].label}]</strong>에 카메라를 집중했습니다!`);
+            selectObject(target, topOutlier.idx);
+            showToast(`🎯 이상치 <strong>[${topOutlier.label}]</strong>에 카메라를 집중했습니다!`);
         }
     });
 }
@@ -2342,14 +2364,23 @@ function updateAxisSelectors(analysis) {
 function updateFilter(colIdx) {
     dataFilter.innerHTML = '<option value="all">전체 보기</option>';
     if (!parsedData) return;
-    [...new Set(parsedData.rows.map(r => r[colIdx]))].slice(0, 60).forEach(v => {
-        dataFilter.appendChild(new Option(v, v));
-    });
+    const seen = new Set();
+    const options = document.createDocumentFragment();
+    for (const row of parsedData.rows) {
+        const value = row[colIdx];
+        if (seen.has(value)) continue;
+        seen.add(value);
+        options.appendChild(new Option(value, value));
+        if (seen.size === 60) break;
+    }
+    dataFilter.appendChild(options);
 }
 
 // ════════════════════════════════════════════════════════════
 // 10. 데이터 테이블 연동
 // ════════════════════════════════════════════════════════════
+let dataTableClickHandlerBound = false;
+
 function renderDataTable(data, highlightRow = -1) {
     const table = $('data-table');
     const rowCountEl = $('row-count');
@@ -2366,12 +2397,15 @@ function renderDataTable(data, highlightRow = -1) {
     table.innerHTML = html;
     rowCountEl.textContent = `(${data.rows.length}행 중 ${Math.min(max, data.rows.length)}행 / ${Math.min(max, data.rows.length)} of ${data.rows.length} rows)`;
 
-    table.querySelectorAll('tbody tr').forEach(tr => {
-        tr.addEventListener('click', () => {
-            const idx = parseInt(tr.dataset.idx);
+    if (!dataTableClickHandlerBound) {
+        table.addEventListener('click', event => {
+            const tr = event.target.closest('tbody tr[data-idx]');
+            if (!tr || !table.contains(tr)) return;
+            const idx = Number(tr.dataset.idx);
             if (idx < dataObjects.length) selectObject(dataObjects[idx], idx);
         });
-    });
+        dataTableClickHandlerBound = true;
+    }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2633,8 +2667,16 @@ function render3DVisualization(labels, values) {
     }
 }
 
+function getMaxValue(values, fallback = 1) {
+    let max = fallback;
+    for (const value of values) {
+        if (value > max) max = value;
+    }
+    return max;
+}
+
 function render3DBarMesh(labels, values, shape = 'box') {
-    const maxVal = Math.max(...values, 1);
+    const maxVal = getMaxValue(values);
     const scale = 8 / maxVal;
     const count = labels.length;
 
@@ -2747,7 +2789,7 @@ function render3DRing(labels, values, innerRadius = 0) {
 }
 
 function render3DArea(labels, values) {
-    const maxVal = Math.max(...values, 1);
+    const maxVal = getMaxValue(values);
     const scale = 7 / maxVal;
     const count = labels.length;
     if (count < 2) {
@@ -2809,7 +2851,7 @@ function render3DArea(labels, values) {
 }
 
 function render3DLine(labels, values) {
-    const maxVal = Math.max(...values, 1);
+    const maxVal = getMaxValue(values);
     const scale = 7 / maxVal;
     const count = labels.length;
     const points = [];
@@ -2864,7 +2906,7 @@ function render3DLine(labels, values) {
 }
 
 function render3DScatter(labels, values) {
-    const maxVal = Math.max(...values, 1);
+    const maxVal = getMaxValue(values);
     const count = labels.length;
     const yIdx = parseInt(yAxisSelect.value);
     const otherNumCols = (analysisResult?.numericCols || []).filter(c => c !== yIdx);
@@ -2874,7 +2916,7 @@ function render3DScatter(labels, values) {
     if (zIdx !== null && parsedData) {
         zValues = parsedData.rows.map(r => parseFloat(r[zIdx]) || 0);
     }
-    const maxZ = zValues.length ? Math.max(...zValues, 1) : 1;
+    const maxZ = getMaxValue(zValues);
 
     labels.forEach((label, i) => {
         const val = values[i];
@@ -2917,7 +2959,7 @@ function render3DScatter(labels, values) {
 }
 
 function render3DSurface(labels, values) {
-    const maxVal = Math.max(...values, 1);
+    const maxVal = getMaxValue(values);
     const count = labels.length;
     const cols = Math.ceil(Math.sqrt(count));
     const rows = Math.ceil(count / cols);
@@ -3128,11 +3170,17 @@ function showDetailCard(ud, idx) {
 
     if (analysisResult && analysisResult.numericCols.length > 0) {
         const yIdx = parseInt(yAxisSelect.value);
-        const allVals = parsedData.rows.map(r => parseFloat(r[yIdx]) || 0);
-        const sorted = [...allVals].sort((a, b) => b - a);
-        const rank = sorted.indexOf(parseFloat(row[yIdx]) || 0) + 1;
-        html += statRow('순위', `${rank} / ${allVals.length}`);
-        const pct = ((parseFloat(row[yIdx]) || 0) / Math.max(...allVals, 1) * 100).toFixed(1);
+        const rows = parsedData.rows;
+        const selectedValue = parseFloat(row[yIdx]) || 0;
+        let rank = 1;
+        let maxValue = 1;
+        for (const dataRow of rows) {
+            const value = parseFloat(dataRow[yIdx]) || 0;
+            if (value > selectedValue) rank++;
+            if (value > maxValue) maxValue = value;
+        }
+        html += statRow('순위', `${rank} / ${rows.length}`);
+        const pct = (selectedValue / maxValue * 100).toFixed(1);
         html += statRow('최대값 대비', `${pct}%`);
     }
     detailStats.innerHTML = html;
@@ -3191,37 +3239,37 @@ function updateFilterSummary(displayed, total) {
 
 function getFilteredRows() {
     if (!parsedData) return [];
-    let rows = [...parsedData.rows];
+    const sourceRows = parsedData.rows;
+    let rows = [];
     const xIdx = parseInt(xAxisSelect.value);
     const yIdx = parseInt(yAxisSelect.value);
 
-    // 1. 키워드 검색 필터
     const kw = filterKeyword ? filterKeyword.value.trim().toLowerCase() : '';
-    if (kw) {
-        rows = rows.filter(r => {
-            const labelText = String(r[xIdx] || '').toLowerCase();
-            return labelText.includes(kw);
-        });
-    }
-
-    // 2. 카테고리 필터
     const fv = dataFilter.value;
-    if (fv !== 'all') rows = rows.filter(r => r[xIdx] === fv);
 
-    // 3. 수치 범위 필터
+    // Apply filters in one pass to avoid allocating intermediate row arrays.
     const rMin = rangeMin.value !== '' ? parseFloat(rangeMin.value) : -Infinity;
     const rMax = rangeMax.value !== '' ? parseFloat(rangeMax.value) : Infinity;
-    if (rMin !== -Infinity || rMax !== Infinity) {
-        rows = rows.filter(r => {
-            const v = parseFloat(r[yIdx]);
-            return !isNaN(v) && v >= rMin && v <= rMax;
-        });
+    const hasRange = rMin !== -Infinity || rMax !== Infinity;
+    for (const row of sourceRows) {
+        if (kw && !String(row[xIdx] || '').toLowerCase().includes(kw)) continue;
+        if (fv !== 'all' && row[xIdx] !== fv) continue;
+        if (hasRange) {
+            const value = parseFloat(row[yIdx]);
+            if (isNaN(value) || value < rMin || value > rMax) continue;
+        }
+        rows.push(row);
     }
 
     // 4. 정렬
     const sort = sortSelect.value;
-    if (sort === 'asc') rows.sort((a, b) => (parseFloat(a[yIdx]) || 0) - (parseFloat(b[yIdx]) || 0));
-    else if (sort === 'desc') rows.sort((a, b) => (parseFloat(b[yIdx]) || 0) - (parseFloat(a[yIdx]) || 0));
+    if (sort === 'asc' || sort === 'desc') {
+        const direction = sort === 'asc' ? 1 : -1;
+        rows = rows
+            .map((row, index) => ({ row, index, value: parseFloat(row[yIdx]) || 0 }))
+            .sort((a, b) => direction * (a.value - b.value) || a.index - b.index)
+            .map(item => item.row);
+    }
 
     // 5. 표시 데이터 개수 제한 (Top N / 대용량 데이터 필터)
     const limitVal = limitSelect ? limitSelect.value : 'all';
@@ -3506,7 +3554,7 @@ btnFilterAboveAvg?.addEventListener('click', () => {
 btnFilterTop20pct?.addEventListener('click', () => {
     if (!parsedData) return;
     const yIdx = parseInt(yAxisSelect.value);
-    const vals = parsedData.rows.map(r => parseFloat(r[yIdx]) || 0).filter(v => !isNaN(v)).sort((a, b) => a - b);
+    const vals = parsedData.rows.map(r => parseFloat(r[yIdx]) || 0).sort((a, b) => a - b);
     if (vals.length) {
         const p80 = vals[Math.floor(vals.length * 0.8)];
         rangeMin.value = Math.round(p80);

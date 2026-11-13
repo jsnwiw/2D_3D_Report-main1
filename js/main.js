@@ -15,13 +15,13 @@
  * ==============================================================================
  */
 
-import { $, appState, showToast } from './js/state.js';
-import { loadAndParseFile } from './js/parser.js';
-import { analyzeData, displayAnalysis, updateAxisSelectors, updateFilter, inferBest3DStyle, getDynamicRecommendations } from './js/analytics.js';
-import { initThreeScene, render3DVisualization, bindCameraControls } from './js/renderer3d.js';
-import { render2DChart, bindChartPanelControls, getFilteredRows } from './js/chart2d.js';
-import { initTimePlayer, bindTimelineEvents, updateTimePlayerUI } from './js/timeline.js';
-import { openAiReportStudio, bindAiReportEvents, updateReportRecommendationUI } from './js/ai-report.js';
+import { $, appState, showToast } from './state.js';
+import { loadAndParseFile } from './parser.js';
+import { analyzeData, displayAnalysis, updateAxisSelectors, updateFilter, inferBest3DStyle, getDynamicRecommendations } from './analytics.js';
+import { initThreeScene, render3DVisualization, bindCameraControls } from './renderer3d.js';
+import { render2DChart, bindChartPanelControls, getFilteredRows } from './chart2d.js';
+import { initTimePlayer, bindTimelineEvents, updateTimePlayerUI } from './timeline.js';
+import { bindAiReportEvents, updateReportRecommendationUI } from './ai-report.js';
 import {
     setupAccordionUI,
     setupMenuScroll,
@@ -30,8 +30,11 @@ import {
     setupDragAndDrop,
     setupTopBarActions,
     setupLightingControls,
-    openAccordionSection
-} from './js/ui.js';
+    openAccordionSection,
+    initSystemInfo,
+    setupFloating3DToolbar,
+    sync3DStyleUI
+} from './ui.js';
 
 // 전역 훅 등록 (모듈 간 상호 호출용)
 window.__openAccordionSection = openAccordionSection;
@@ -67,6 +70,7 @@ export function processData(sourceName) {
     // 3. 타임라인 및 시각화 적용
     initTimePlayer();
     applyVisualization();
+    sync3DStyleUI(appState.current3DStyle || 'box');
 
     // 4. 상태 표시줄 갱신
     const statusIndicator = $('status-indicator');
@@ -104,6 +108,7 @@ function bindFilterAndOptionEvents() {
     const xAxisSelect = $('x-axis-select');
     const yAxisSelect = $('y-axis-select');
     const barStyleSelect = $('bar-style');
+    const quickBarStyle = $('quick-bar-style');
     const chartTypeSelect = $('chart-type-select');
     const applyBtn = $('apply-btn');
     const dataFilter = $('data-filter');
@@ -153,6 +158,7 @@ function bindFilterAndOptionEvents() {
 
         const best3D = inferBest3DStyle(labels, values, appState.analysisResult);
         if (barStyleSelect) barStyleSelect.value = best3D;
+        if (quickBarStyle) quickBarStyle.value = best3D;
 
         const recs = getDynamicRecommendations(labels, values, appState.analysisResult);
         const valid2DTypes = ['bar', 'horizontalBar', 'line', 'pie', 'doughnut', 'scatter', 'radar', 'polarArea'];
@@ -176,10 +182,20 @@ function bindFilterAndOptionEvents() {
             updateReportRecommendationUI();
         }
     });
+    quickBarStyle?.addEventListener('change', () => {
+        sync3DStyleUI(quickBarStyle.value);
+        if (appState.parsedData) applyVisualization();
+    });
     barStyleSelect?.addEventListener('change', () => {
+        sync3DStyleUI(barStyleSelect.value);
         if (appState.parsedData) applyVisualization();
     });
     chartTypeSelect?.addEventListener('change', () => {
+        const chartType = chartTypeSelect.value;
+        if (chartType === 'pie') sync3DStyleUI('pie');
+        else if (chartType === 'doughnut' || chartType === 'polarArea') sync3DStyleUI('donut');
+        else if (chartType === 'line') sync3DStyleUI('line');
+        else if (chartType === 'scatter') sync3DStyleUI('scatter');
         if (appState.parsedData) applyVisualization();
     });
     applyBtn?.addEventListener('click', () => {
@@ -215,7 +231,7 @@ function bindFilterAndOptionEvents() {
     btnFilterTop20pct?.addEventListener('click', () => {
         if (!appState.parsedData) return;
         const yIdx = parseInt(yAxisSelect.value);
-        const vals = appState.parsedData.rows.map(r => parseFloat(r[yIdx]) || 0).filter(v => !isNaN(v)).sort((a, b) => a - b);
+        const vals = appState.parsedData.rows.map(r => parseFloat(r[yIdx]) || 0).sort((a, b) => a - b);
         if (vals.length) {
             const threshold = vals[Math.floor(vals.length * 0.8)];
             if (rangeMin) rangeMin.value = Math.round(threshold);
@@ -260,7 +276,7 @@ async function bootstrapApp() {
         bindChartPanelControls();
         bindTimelineEvents();
         bindAiReportEvents();
-        // UI 초기화\n    setupAccordionUI();\n    setupMenuScroll();\n    setupUploadCardToggle();\n    setupGpuModal();\n    setupDragAndDrop(processData);\n    setupTopBarActions();\n    setupLightingControls();\n    bindFilterAndOptionEvents();\n    // 시스템 정보 초기화\n    initSystemInfo();
+        setupAccordionUI();
         setupMenuScroll();
         setupUploadCardToggle();
         setupGpuModal();
@@ -268,6 +284,8 @@ async function bootstrapApp() {
         setupTopBarActions();
         setupLightingControls();
         bindFilterAndOptionEvents();
+        setupFloating3DToolbar(applyVisualization);
+        initSystemInfo();
 
         console.log('✅ 모든 서브시스템 및 모듈 초기화 완료!');
     } catch (err) {

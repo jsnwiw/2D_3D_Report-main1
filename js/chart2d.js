@@ -12,6 +12,8 @@ export const COLORS = [
     'rgba(239, 68, 68, 0.85)', 'rgba(34, 197, 94, 0.85)', 'rgba(168, 85, 247, 0.85)'
 ];
 
+let dataTableClickHandlerBound = false;
+
 if (window.Chart) {
     Chart.defaults.font.family = "'Pretendard', -apple-system, BlinkMacSystemFont, 'Malgun Gothic', sans-serif";
 }
@@ -25,7 +27,8 @@ export function updateFilterSummary(displayed, total) {
 
 export function getFilteredRows() {
     if (!appState.parsedData) return [];
-    let rows = [...appState.parsedData.rows];
+    const sourceRows = appState.parsedData.rows;
+    let rows = [];
     const xAxisSelect = $('x-axis-select');
     const yAxisSelect = $('y-axis-select');
     const dataFilter = $('data-filter');
@@ -38,32 +41,32 @@ export function getFilteredRows() {
     const xIdx = parseInt(xAxisSelect ? xAxisSelect.value : 0);
     const yIdx = parseInt(yAxisSelect ? yAxisSelect.value : 1);
 
-    // 1. 키워드 검색
     const kw = filterKeyword ? filterKeyword.value.trim().toLowerCase() : '';
-    if (kw) {
-        rows = rows.filter(r => String(r[xIdx] || '').toLowerCase().includes(kw));
-    }
 
-    // 2. 카테고리 필터
-    if (dataFilter && dataFilter.value !== 'all') {
-        rows = rows.filter(r => r[xIdx] === dataFilter.value);
-    }
-
-    // 3. 수치 범위 필터
+    // Apply filters in one pass to avoid allocating intermediate row arrays.
     const rMin = rangeMin && rangeMin.value !== '' ? parseFloat(rangeMin.value) : -Infinity;
     const rMax = rangeMax && rangeMax.value !== '' ? parseFloat(rangeMax.value) : Infinity;
-    if (rMin !== -Infinity || rMax !== Infinity) {
-        rows = rows.filter(r => {
-            const v = parseFloat(r[yIdx]);
-            return !isNaN(v) && v >= rMin && v <= rMax;
-        });
+    const hasRange = rMin !== -Infinity || rMax !== Infinity;
+    const category = dataFilter && dataFilter.value !== 'all' ? dataFilter.value : null;
+
+    for (const row of sourceRows) {
+        if (kw && !String(row[xIdx] || '').toLowerCase().includes(kw)) continue;
+        if (category !== null && row[xIdx] !== category) continue;
+        if (hasRange) {
+            const value = parseFloat(row[yIdx]);
+            if (isNaN(value) || value < rMin || value > rMax) continue;
+        }
+        rows.push(row);
     }
 
     // 4. 정렬
-    if (sortSelect) {
-        const sort = sortSelect.value;
-        if (sort === 'asc') rows.sort((a, b) => (parseFloat(a[yIdx]) || 0) - (parseFloat(b[yIdx]) || 0));
-        else if (sort === 'desc') rows.sort((a, b) => (parseFloat(b[yIdx]) || 0) - (parseFloat(a[yIdx]) || 0));
+    const sort = sortSelect ? sortSelect.value : 'none';
+    if (sort === 'asc' || sort === 'desc') {
+        const direction = sort === 'asc' ? 1 : -1;
+        rows = rows
+            .map((row, index) => ({ row, index, value: parseFloat(row[yIdx]) || 0 }))
+            .sort((a, b) => direction * (a.value - b.value) || a.index - b.index)
+            .map(item => item.row);
     }
 
     // 5. 표시 데이터 개수 제한 (Top N)
@@ -187,14 +190,17 @@ export function renderDataTable(data, highlightRow = -1) {
     table.innerHTML = html;
     if (rowCountEl) rowCountEl.textContent = `(${data.rows.length}행 중 ${Math.min(max, data.rows.length)}행)`;
 
-    table.querySelectorAll('tbody tr').forEach(tr => {
-        tr.addEventListener('click', () => {
-            const idx = parseInt(tr.dataset.idx);
+    if (!dataTableClickHandlerBound) {
+        table.addEventListener('click', event => {
+            const tr = event.target.closest('tbody tr[data-idx]');
+            if (!tr || !table.contains(tr)) return;
+            const idx = Number(tr.dataset.idx);
             if (idx < appState.dataObjects.length && window.__selectObject) {
                 window.__selectObject(appState.dataObjects[idx], idx);
             }
         });
-    });
+        dataTableClickHandlerBound = true;
+    }
 }
 
 export function showDetailCard(ud, idx) {
@@ -218,11 +224,17 @@ export function showDetailCard(ud, idx) {
 
     if (appState.analysisResult && appState.analysisResult.numericCols.length > 0 && yAxisSelect) {
         const yIdx = parseInt(yAxisSelect.value);
-        const allVals = appState.parsedData.rows.map(r => parseFloat(r[yIdx]) || 0);
-        const sorted = [...allVals].sort((a, b) => b - a);
-        const rank = sorted.indexOf(parseFloat(row[yIdx]) || 0) + 1;
-        html += statRow('순위', `${rank} / ${allVals.length}`);
-        const pct = ((parseFloat(row[yIdx]) || 0) / Math.max(...allVals, 1) * 100).toFixed(1);
+        const rows = appState.parsedData.rows;
+        const selectedValue = parseFloat(row[yIdx]) || 0;
+        let rank = 1;
+        let maxValue = 1;
+        for (const dataRow of rows) {
+            const value = parseFloat(dataRow[yIdx]) || 0;
+            if (value > selectedValue) rank++;
+            if (value > maxValue) maxValue = value;
+        }
+        html += statRow('순위', `${rank} / ${rows.length}`);
+        const pct = (selectedValue / maxValue * 100).toFixed(1);
         html += statRow('최대값 대비', `${pct}%`);
     }
     detailStats.innerHTML = html;
