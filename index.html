@@ -776,15 +776,5 @@
     </script>
     <!-- ES6 모듈 방식으로 메인 자바스크립트 실행 -->
     <script type="module" src="main.js"></script>
-    <script>
-        // PWA 서비스 워커(Service Worker) 자동 등록 스크립트
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').catch(err => {
-                    console.log('SW Registration failed: ', err);
-                });
-            });
-        }
-    </script>
 </body>
 </html>

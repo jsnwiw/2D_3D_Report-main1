@@ -54,6 +54,53 @@ export function applyVisualization() {
 }
 window.__applyVisualization = applyVisualization;
 
+function setupServiceWorkerUpdates() {
+    if (!('serviceWorker' in navigator)) return;
+
+    let hasController = Boolean(navigator.serviceWorker.controller);
+    let updatePromptShown = false;
+
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!hasController) {
+            hasController = true;
+            return;
+        }
+        if (updatePromptShown) return;
+
+        updatePromptShown = true;
+        showToast(
+            '새 버전이 준비되었습니다. <button type="button" class="pwa-update-button">지금 적용</button>',
+            60000
+        );
+        $('toast-notification')?.querySelector('.pwa-update-button')?.addEventListener(
+            'click',
+            () => window.location.reload(),
+            { once: true }
+        );
+    });
+
+    window.addEventListener('load', async () => {
+        try {
+            const registration = await navigator.serviceWorker.register('./sw.js');
+            registration.update().catch(error => {
+                console.error('서비스 워커 업데이트 확인 실패:', error);
+            });
+
+            const checkForUpdate = () => {
+                registration.update().catch(error => {
+                    console.error('서비스 워커 업데이트 확인 실패:', error);
+                });
+            };
+            window.addEventListener('focus', checkForUpdate);
+            document.addEventListener('visibilitychange', () => {
+                if (!document.hidden) checkForUpdate();
+            });
+        } catch (error) {
+            console.error('서비스 워커 등록 실패:', error);
+        }
+    }, { once: true });
+}
+
 /**
  * 데이터 로드 완료 후 통합 분석 및 시각화 파이프라인 구동
  */
@@ -265,6 +312,7 @@ function bindFilterAndOptionEvents() {
  * 🚀 애플리케이션 진입점 (Bootstrap)
  */
 async function bootstrapApp() {
+    setupServiceWorkerUpdates();
     try {
         console.log('🚀 3D 데이터 시각화 웹 플랫폼 모듈 로드 시작...');
 
