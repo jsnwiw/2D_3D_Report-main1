@@ -90,7 +90,11 @@ async function setupServiceWorkerUpdates() {
     };
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
-        if (reloadAfterUpdate) window.location.reload();
+        if (reloadAfterUpdate) {
+            window.location.reload();
+        } else {
+            showUpdatePrompt();
+        }
     });
 
     const watchInstallingWorker = () => {
