@@ -171,7 +171,7 @@ body, html {
     color: #34d399;
     padding: 3px 10px;
     border-radius: 20px;
-    font-size: 11px;
+    font-size: clamp(10px, 0.9vw, 12px);
     font-weight: 700;
     cursor: pointer;
     transition: all 0.25s ease;
@@ -193,8 +193,8 @@ body, html {
     border-color: #fbbf24;
 }
 .gpu-dot {
-    width: 7px;
-    height: 7px;
+    width: clamp(6px, 0.55vw, 8px);
+    height: clamp(6px, 0.55vw, 8px);
     border-radius: 50%;
     background: #34d399;
     box-shadow: 0 0 6px #34d399;
@@ -216,7 +216,7 @@ body, html {
     color: #34d399;
     padding: 1px 6px;
     border-radius: 10px;
-    font-size: 10px;
+    font-size: clamp(9px, 0.75vw, 10px);
     font-weight: 800;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
     margin-left: 2px;
@@ -249,6 +249,15 @@ body, html {
     transition: all 0.2s; 
     white-space: nowrap;
 }
+.toolbar-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    font-size: clamp(13px, calc(0.65vw + 8px), 18px);
+    line-height: 1;
+    vertical-align: middle;
+}
 .top-bar-right button:hover {
     background: rgba(99, 102, 241, 0.25);
     border-color: rgba(99, 102, 241, 0.5);
@@ -262,6 +271,16 @@ body, html {
     border-radius: 6px;
     padding: 3px 8px;
     white-space: nowrap;
+}
+.topbar-style-icon {
+    font-size: clamp(14px, calc(0.5vw + 10px), 17px);
+    margin-right: 3px;
+}
+.topbar-style-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: #818cf8;
+    margin-right: 4px;
 }
 .topbar-style-select {
     background: transparent;
@@ -644,7 +663,7 @@ body, html {
     border-bottom: 1px solid rgba(99, 102, 241, 0.15);
 }
 .accordion-header .chevron {
-    font-size: 12px; color: #94a3b8;
+    font-size: clamp(11px, 1vw, 14px); color: #94a3b8;
     transition: transform 0.32s var(--ui-spring), color 0.2s ease;
 }
 .accordion-header.active .chevron {
@@ -1200,7 +1219,7 @@ body.upload-collapsed #chart-panel {
     gap: 8px;
 }
 .modal-title .modal-icon {
-    font-size: 18px;
+    font-size: clamp(16px, 1.4vw, 20px);
 }
 .modal-title h3 {
     margin: 0;
@@ -1376,7 +1395,7 @@ body.upload-collapsed #chart-panel {
     flex: 1;
     min-width: 0;
 }
-.time-icon { font-size: 14px; }
+.time-icon { font-size: clamp(14px, 1.3vw, 18px); }
 .time-title { font-weight: 700; color: #a5b4fc; white-space: nowrap; }
 .time-step-badge {
     background: rgba(99, 102, 241, 0.25);
@@ -1617,7 +1636,7 @@ body.upload-collapsed #chart-panel {
     transition: transform 0.2s;
 }
 .drag-drop-icon {
-    font-size: 54px;
+    font-size: clamp(38px, 6vw, 54px);
     margin-bottom: 12px;
     animation: bounceIcon 1.2s infinite ease-in-out;
 }
@@ -2664,7 +2683,7 @@ body.upload-collapsed #chart-panel {
         display: none;
     }
     .mobile-action-icon {
-        font-size: 17px;
+        font-size: clamp(16px, 4vw, 22px);
         line-height: 1;
     }
     .upload-card {
@@ -2764,10 +2783,27 @@ body.upload-collapsed #chart-panel {
    PRINT STYLES - Force white background for report printing
    ============================================================================== */
 @media print {
-  /* Page background and text color */
+  /* Keep the printed page white in tablet and WebKit browsers. */
   body, html {
     background: #fff !important;
+    background-color: #fff !important;
+    background-image: none !important;
     color: #000 !important;
+    color-scheme: light !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body *,
+  body *::before,
+  body *::after,
+  #print-report-container,
+  #print-report-container *,
+  #print-report-container::before,
+  #print-report-container::after {
+    background-color: #fff !important;
+    background-image: none !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   /* Hide interactive UI elements */
   header, footer, nav, .top-bar, .menu-drawer, .btn, button, .no-print, .sidebar {

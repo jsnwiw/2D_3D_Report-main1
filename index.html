@@ -67,7 +67,8 @@
         <div class="top-bar-right">
             <!-- 3D 시각화 형태 즉시 전환 셀렉터 -->
             <div class="topbar-style-wrap" title="3D 시각화 형태 즉시 전환 (막대, 원기둥, 파이, 도넛, 피라미드, 라인 등)">
-                <span style="font-size: 11px; font-weight: 700; color: #818cf8; margin-right: 4px;">🧊 3D:</span>
+                <span class="toolbar-icon topbar-style-icon" aria-hidden="true">🧊</span>
+                <span class="topbar-style-label">3D:</span>
                 <select id="quick-bar-style" class="topbar-style-select">
                     <option value="auto">3D 자동 추천</option>
                     <option value="box">📊 3D 입체 직육면체 막대</option>
@@ -81,18 +82,18 @@
                     <option value="surface">🌊 3D 곡면 서피스</option>
                 </select>
             </div>
-            <button id="btn-auto-rotate" title="3D 자동 회전 뷰">🔄 회전</button>
-            <button id="btn-reset-camera" title="태블릿/모니터 화면 크기에 맞춰 3D 시점 자동 최적화">🎥 맞춤</button>
-            <button id="btn-iso-view" title="대각 입체 뷰">📐 아이소</button>
-            <button id="btn-top-view" title="위에서 보기">⬆ 탑뷰</button>
-            <button id="btn-front-view" title="정면 보기">◻ 정면</button>
-            <button id="btn-toggle-grid" title="그리드 토글">▦ 그리드</button>
-            <button id="btn-toggle-labels" title="라벨 토글">🏷 라벨</button>
-            <button id="btn-toggle-timeline" title="시계열/다차원 타임슬라이더 플레이어">⏳ 타임라인</button>
-            <button id="btn-screenshot" title="현재 3D 화면 고화질 PNG 이미지로 저장">📸 캡처</button>
+            <button id="btn-auto-rotate" title="3D 자동 회전 뷰"><span class="toolbar-icon" aria-hidden="true">🔄</span> 회전</button>
+            <button id="btn-reset-camera" title="태블릿/모니터 화면 크기에 맞춰 3D 시점 자동 최적화"><span class="toolbar-icon" aria-hidden="true">🎥</span> 맞춤</button>
+            <button id="btn-iso-view" title="대각 입체 뷰"><span class="toolbar-icon" aria-hidden="true">📐</span> 아이소</button>
+            <button id="btn-top-view" title="위에서 보기"><span class="toolbar-icon" aria-hidden="true">⬆</span> 탑뷰</button>
+            <button id="btn-front-view" title="정면 보기"><span class="toolbar-icon" aria-hidden="true">◻</span> 정면</button>
+            <button id="btn-toggle-grid" title="그리드 토글"><span class="toolbar-icon" aria-hidden="true">▦</span> 그리드</button>
+            <button id="btn-toggle-labels" title="라벨 토글"><span class="toolbar-icon" aria-hidden="true">🏷</span> 라벨</button>
+            <button id="btn-toggle-timeline" title="시계열/다차원 타임슬라이더 플레이어"><span class="toolbar-icon" aria-hidden="true">⏳</span> 타임라인</button>
+            <button id="btn-screenshot" title="현재 3D 화면 고화질 PNG 이미지로 저장"><span class="toolbar-icon" aria-hidden="true">📸</span> 캡처</button>
             <button id="btn-print-report" class="topbar-ai-report-btn" title="AI가 데이터를 정밀 분석하여 보고서를 자동으로 작성합니다">AI 자동 보고서</button>
-            <button id="btn-fullscreen" title="전체화면">⛶</button>
-            <button id="btn-toggle-menu" class="menu-toggle-btn" title="대시보드 메뉴 열기/닫기">☰ 메뉴</button>
+            <button id="btn-fullscreen" title="전체화면"><span class="toolbar-icon" aria-hidden="true">⛶</span></button>
+            <button id="btn-toggle-menu" class="menu-toggle-btn" title="대시보드 메뉴 열기/닫기"><span class="toolbar-icon" aria-hidden="true">☰</span> 메뉴</button>
         </div>
     </header>
 
