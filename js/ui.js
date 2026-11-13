@@ -343,6 +343,64 @@ export function setupTopBarActions() {
     const btnFullscreen = $('btn-fullscreen');
     const btnScreenshot = $('btn-screenshot');
     const mobileActionBar = $('mobile-action-bar');
+    const usageGuideModal = $('usage-guide-modal');
+    const btnUsageGuide = $('btn-usage-guide');
+    const btnCloseUsageGuide = $('btn-close-usage-guide');
+    const btnCloseUsageGuideBottom = $('btn-close-usage-guide-bottom');
+    const btnUsageGuideFile = $('btn-usage-guide-file');
+    let usageGuideReturnFocus = null;
+
+    const closeUsageGuide = () => {
+        if (!usageGuideModal || usageGuideModal.style.display === 'none') return;
+        usageGuideModal.style.display = 'none';
+        usageGuideModal.setAttribute('aria-hidden', 'true');
+        if (usageGuideReturnFocus instanceof HTMLElement && usageGuideReturnFocus.isConnected) {
+            usageGuideReturnFocus.focus();
+        }
+        usageGuideReturnFocus = null;
+    };
+
+    const openUsageGuide = () => {
+        if (!usageGuideModal) return;
+        usageGuideReturnFocus = document.activeElement;
+        usageGuideModal.style.display = 'flex';
+        usageGuideModal.setAttribute('aria-hidden', 'false');
+        btnCloseUsageGuide?.focus();
+    };
+
+    btnUsageGuide?.addEventListener('click', openUsageGuide);
+    btnCloseUsageGuide?.addEventListener('click', closeUsageGuide);
+    btnCloseUsageGuideBottom?.addEventListener('click', closeUsageGuide);
+    btnUsageGuideFile?.addEventListener('click', () => {
+        closeUsageGuide();
+        $('csv-upload')?.click();
+    });
+    usageGuideModal?.addEventListener('click', event => {
+        if (event.target === usageGuideModal) closeUsageGuide();
+    });
+    usageGuideModal?.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            closeUsageGuide();
+            return;
+        }
+        if (event.key !== 'Tab') return;
+
+        const focusable = [...usageGuideModal.querySelectorAll(
+            'button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])'
+        )].filter(element => element.getClientRects().length > 0);
+        if (!focusable.length) return;
+
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
 
     btnToggleMenu?.addEventListener('click', () => {
         if (menuPanel) menuPanel.classList.toggle('open');
