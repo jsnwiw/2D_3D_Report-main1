@@ -10,7 +10,7 @@
  */
 
 // 캐시 스토리지 고유 버전명 (리소스 업데이트 시 버전 변경)
-const CACHE_NAME = '3d-vis-cache-v7';
+const CACHE_NAME = '3d-vis-cache-v9';
 
 // 오프라인 상태에서도 동작할 수 있도록 사전 캐싱할 핵심 정적 자산 목록
 const ASSETS_TO_CACHE = [

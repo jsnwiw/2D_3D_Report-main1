@@ -342,9 +342,14 @@ export function setupTopBarActions() {
     const btnCloseMenu = $('btn-close-menu');
     const btnFullscreen = $('btn-fullscreen');
     const btnScreenshot = $('btn-screenshot');
+    const mobileActionBar = $('mobile-action-bar');
 
     btnToggleMenu?.addEventListener('click', () => {
         if (menuPanel) menuPanel.classList.toggle('open');
+    });
+    mobileActionBar?.addEventListener('click', event => {
+        const action = event.target.closest('[data-mobile-target]');
+        if (action) $(action.dataset.mobileTarget)?.click();
     });
     btnCloseMenu?.addEventListener('click', () => {
         if (menuPanel) menuPanel.classList.remove('open');

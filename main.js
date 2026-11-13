@@ -140,6 +140,11 @@ export function processData(sourceName) {
 
     // 3. 타임라인 및 시각화 적용
     initTimePlayer();
+    const mobileTimelineAction = $('mobile-timeline-action');
+    if (mobileTimelineAction) {
+        const numericColumns = appState.analysisResult?.numericCols || [];
+        mobileTimelineAction.hidden = numericColumns.length < 2;
+    }
     applyVisualization();
     sync3DStyleUI(appState.current3DStyle || 'box');
 
@@ -337,6 +342,8 @@ function bindFilterAndOptionEvents() {
  */
 async function bootstrapApp() {
     setupServiceWorkerUpdates();
+    const menuPanel = $('menu-panel');
+    if (menuPanel && window.innerWidth > 768) menuPanel.classList.add('open');
     try {
         console.log('🚀 3D 데이터 시각화 웹 플랫폼 모듈 로드 시작...');
 
